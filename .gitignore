@@ -6,11 +6,6 @@ output/
 # 文档目录（用户输入文件）
 doc/
 
-# 构建产物
-dist/
-*.exe
-*.app
-
 # 日志文件
 *.log
 npm-debug.log*
