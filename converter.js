@@ -1,6 +1,12 @@
 const mammoth = require('mammoth');
 const fs = require('fs').promises;
 const path = require('path');
+const HtmlToMarkdownConverter = require('./libs/html-to-markdown');
+
+/**
+ * Docx到Markdown转换器主类
+ * 负责协调各个转换模块，完成docx到Markdown的完整转换流程
+ */
 class DocxToMarkdownConverter {
     constructor() {
         this.options = {
@@ -28,6 +34,12 @@ class DocxToMarkdownConverter {
         };
     }
 
+    /**
+     * 转换docx文件到Markdown
+     * @param {string} inputPath - 输入文件路径
+     * @param {string} outputPath - 输出文件路径（可选）
+     * @returns {Promise<Object>} 转换结果
+     */
     async convertFile(inputPath, outputPath = null) {
         try {
             // 读取docx文件
@@ -36,8 +48,13 @@ class DocxToMarkdownConverter {
             // 转换为HTML
             const result = await mammoth.convertToHtml(buffer, this.options);
 
+            // 验证转换结果
+            if (!result.value) {
+                throw new Error('无法从docx文件提取内容');
+            }
+
             // 将HTML转换为Markdown
-            const markdown = this.htmlToMarkdown(result.value);
+            const markdown = HtmlToMarkdownConverter.convert(result.value);
 
             // 确定输出路径
             if (!outputPath) {
@@ -49,10 +66,14 @@ class DocxToMarkdownConverter {
             // 写入markdown文件
             await fs.writeFile(outputPath, markdown, 'utf8');
 
+            // 获取转换统计信息
+            const stats = HtmlToMarkdownConverter.getConversionStats(result.value, markdown);
+
             return {
                 success: true,
                 outputPath,
-                message: `转换成功！输出文件：${outputPath}`
+                message: `转换成功！输出文件：${outputPath}`,
+                stats: stats
             };
 
         } catch (error) {
@@ -64,217 +85,125 @@ class DocxToMarkdownConverter {
         }
     }
 
-    htmlToMarkdown(html) {
-        let markdown = html;
-
-        // 转换标题
-        markdown = markdown.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n');
-        markdown = markdown.replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n');
-        markdown = markdown.replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n');
-        markdown = markdown.replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n\n');
-        markdown = markdown.replace(/<h5[^>]*>(.*?)<\/h5>/gi, '##### $1\n\n');
-        markdown = markdown.replace(/<h6[^>]*>(.*?)<\/h6>/gi, '###### $1\n\n');
-
-        // 转换粗体和斜体
-        markdown = markdown.replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**');
-        markdown = markdown.replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**');
-        markdown = markdown.replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*');
-        markdown = markdown.replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*');
-
-        // 转换链接
-        markdown = markdown.replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)');
-
-        // 转换图片
-        markdown = markdown.replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, '![$2]($1)');
-        markdown = markdown.replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, '![]($1)');
-
-        // 转换代码块
-        markdown = markdown.replace(/<pre[^>]*><code[^>]*>(.*?)<\/code><\/pre>/gis, '```\n$1\n```\n\n');
-        markdown = markdown.replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`');
-
-        // 转换段落
-        markdown = markdown.replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n');
-
-        // 转换换行
-        markdown = markdown.replace(/<br[^>]*>/gi, '\n');
-
-        // 转换表格
-        const self = this;
-        markdown = markdown.replace(/<table[^>]*>(.*?)<\/table>/gis, function (match) {
-            const tableMarkdown = self.processTable(match);
-            return '\n' + tableMarkdown + '\n';
-        });
-
-        // 转换列表
-        markdown = markdown.replace(/<ul[^>]*>(.*?)<\/ul>/gis, function (match) { return self.processUnorderedList(match); });
-        markdown = markdown.replace(/<ol[^>]*>(.*?)<\/ol>/gis, function (match) { return self.processOrderedList(match); });
-
-        // 转换引用
-        markdown = markdown.replace(/<blockquote[^>]*>(.*?)<\/blockquote>/gis, (match, content) => {
-            const lines = content.trim().split('\n');
-            return lines.map(line => `> ${line.trim()}`).join('\n') + '\n\n';
-        });
-
-        // 清理剩余的HTML标签
-        markdown = markdown.replace(/<[^>]*>/g, '');
-
-        // 解码HTML实体
-        markdown = markdown.replace(/&nbsp;/g, ' ');
-        markdown = markdown.replace(/&amp;/g, '&');
-        markdown = markdown.replace(/&lt;/g, '<');
-        markdown = markdown.replace(/&gt;/g, '>');
-        markdown = markdown.replace(/&quot;/g, '"');
-        markdown = markdown.replace(/&#39;/g, "'");
-
-        // 清理多余的空行
-        markdown = markdown.replace(/\n{3,}/g, '\n\n');
-
-        return markdown.trim();
-    }
-
-    processUnorderedList(match) {
-        const items = match.match(/<li[^>]*>(.*?)<\/li>/gi) || [];
-        const listItems = items.map(item => {
-            const content = item.replace(/<li[^>]*>(.*?)<\/li>/i, '$1');
-            return `- ${this.cleanListItemContent(content)}`;
-        });
-        return listItems.join('\n') + '\n\n';
-    }
-
-    processOrderedList(match) {
-        const items = match.match(/<li[^>]*>(.*?)<\/li>/gi) || [];
-        const listItems = items.map((item, index) => {
-            const content = item.replace(/<li[^>]*>(.*?)<\/li>/i, '$1');
-            return `${index + 1}. ${this.cleanListItemContent(content)}`;
-        });
-        return listItems.join('\n') + '\n\n';
-    }
-
-    cleanListItemContent(content) {
-        // 移除段落标签并清理内容
-        return content.replace(/<p[^>]*>(.*?)<\/p>/gi, '$1')
-            .replace(/<[^>]*>/g, '')
-            .trim();
-    }
-
-    processTable(htmlTable) {
+    /**
+     * 批量转换docx文件
+     * @param {string} inputDir - 输入目录
+     * @param {string} outputDir - 输出目录
+     * @returns {Promise<Object>} 批量转换结果
+     */
+    async convertFiles(inputDir, outputDir) {
         try {
-            // 提取表头
-            const theadMatch = htmlTable.match(/<thead[^>]*>(.*?)<\/thead>/gis);
-            const tbodyMatch = htmlTable.match(/<tbody[^>]*>(.*?)<\/tbody>/gis);
+            const files = await fs.readdir(inputDir);
+            const docxFiles = files.filter(file => file.toLowerCase().endsWith('.docx'));
 
-            let rows = [];
-
-            // 处理表头
-            if (theadMatch) {
-                const thead = theadMatch[0];
-                const headerRows = this.extractTableRows(thead);
-                rows = rows.concat(headerRows);
+            if (docxFiles.length === 0) {
+                return {
+                    success: true,
+                    totalFiles: 0,
+                    convertedFiles: 0,
+                    failedFiles: 0,
+                    message: '没有找到docx文件'
+                };
             }
 
-            // 处理表体
-            if (tbodyMatch) {
-                const tbody = tbodyMatch[0];
-                const bodyRows = this.extractTableRows(tbody);
-                rows = rows.concat(bodyRows);
-            } else {
-                // 如果没有thead和tbody，直接提取所有tr
-                rows = this.extractTableRows(htmlTable);
-            }
+            let convertedCount = 0;
+            let failedCount = 0;
+            const results = [];
 
-            if (rows.length === 0) {
-                return '';
-            }
+            for (const file of docxFiles) {
+                const inputPath = path.join(inputDir, file);
+                const outputFileName = path.basename(file, '.docx') + '.md';
+                const outputPath = path.join(outputDir, outputFileName);
 
-            // 转换为Markdown表格
-            let markdownTable = '';
+                const result = await this.convertFile(inputPath, outputPath);
+                results.push({
+                    inputFile: file,
+                    outputFile: outputFileName,
+                    success: result.success,
+                    message: result.message,
+                    stats: result.stats
+                });
 
-            // 添加第一行（通常是表头）
-            if (rows.length > 0) {
-                markdownTable += '| ' + rows[0].join(' | ') + ' |\n';
-
-                // 添加分隔线
-                const separators = rows[0].map(() => '---');
-                markdownTable += '| ' + separators.join(' | ') + ' |\n';
-
-                // 添加数据行
-                for (let i = 1; i < rows.length; i++) {
-                    markdownTable += '| ' + rows[i].join(' | ') + ' |\n';
+                if (result.success) {
+                    convertedCount++;
+                } else {
+                    failedCount++;
                 }
             }
 
-            return markdownTable + '\n';
+            return {
+                success: true,
+                totalFiles: docxFiles.length,
+                convertedFiles: convertedCount,
+                failedFiles: failedCount,
+                results: results,
+                message: `批量转换完成：成功 ${convertedCount} 个，失败 ${failedCount} 个`
+            };
 
         } catch (error) {
-            console.warn('表格转换失败:', error.message);
-            return '';
+            return {
+                success: false,
+                error: error.message,
+                message: `批量转换失败：${error.message}`
+            };
         }
     }
 
-    extractTableRows(tableHtml) {
-        const rows = [];
-        const trMatches = tableHtml.match(/<tr[^>]*>(.*?)<\/tr>/gis);
+    /**
+     * 验证输入文件
+     * @param {string} filePath - 文件路径
+     * @returns {Object} 验证结果
+     */
+    validateInputFile(filePath) {
+        const result = {
+            isValid: true,
+            errors: []
+        };
 
-        if (!trMatches) {
-            return rows;
+        // 检查文件是否存在
+        if (!fs.existsSync(filePath)) {
+            result.isValid = false;
+            result.errors.push('文件不存在');
+            return result;
         }
 
-        for (const tr of trMatches) {
-            const cells = [];
-
-            // 提取表头单元格 (th)
-            const thMatches = tr.match(/<th[^>]*>(.*?)<\/th>/gis);
-            if (thMatches) {
-                for (const th of thMatches) {
-                    const content = this.cleanTableCellContent(th);
-                    cells.push(content);
-                }
-            }
-
-            // 如果没有表头，提取数据单元格 (td)
-            if (cells.length === 0) {
-                const tdMatches = tr.match(/<td[^>]*>(.*?)<\/td>/gis);
-                if (tdMatches) {
-                    for (const td of tdMatches) {
-                        const content = this.cleanTableCellContent(td);
-                        cells.push(content);
-                    }
-                }
-            }
-
-            if (cells.length > 0) {
-                rows.push(cells);
-            }
+        // 检查文件扩展名
+        if (!filePath.toLowerCase().endsWith('.docx')) {
+            result.isValid = false;
+            result.errors.push('文件必须是.docx格式');
         }
 
-        return rows;
+        // 检查文件是否可读
+        try {
+            fs.accessSync(filePath, fs.constants.R_OK);
+        } catch (error) {
+            result.isValid = false;
+            result.errors.push('文件无法读取');
+        }
+
+        return result;
     }
 
-    cleanTableCellContent(cellHtml) {
-        // 移除单元格标签并清理内容
-        let content = cellHtml;
-
-        // 移除单元格标签
-        content = content.replace(/<(th|td)[^>]*>/gi, '').replace(/<\/(th|td)>/gi, '');
-
-        // 移除段落标签
-        content = content.replace(/<p[^>]*>/gi, '').replace(/<\/p>/gi, ' ');
-
-        // 移除其他HTML标签
-        content = content.replace(/<[^>]*>/g, '');
-
-        // 解码HTML实体
-        content = content.replace(/&nbsp;/g, ' ');
-        content = content.replace(/&amp;/g, '&');
-        content = content.replace(/&lt;/g, '<');
-        content = content.replace(/&gt;/g, '>');
-        content = content.replace(/&quot;/g, '"');
-        content = content.replace(/&#39;/g, "'");
-
-        // 清理空白字符并转义管道符（Markdown表格分隔符）
-        content = content.trim().replace(/\s+/g, ' ').replace(/\|/g, '\\|');
-
-        return content;
+    /**
+     * 获取转换器配置信息
+     * @returns {Object} 配置信息
+     */
+    getConfig() {
+        return {
+            version: require('./package.json').version,
+            supportedFormats: ['.docx'],
+            outputFormat: 'markdown',
+            features: {
+                headings: true,
+                textFormatting: true,
+                links: true,
+                images: true,
+                tables: true,
+                lists: true,
+                blockquotes: true,
+                codeBlocks: true
+            }
+        };
     }
 }
 

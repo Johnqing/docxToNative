@@ -46,3 +46,7 @@ coverage/
 # 锁文件（可选，如果不希望提交）
 # package-lock.json
 # yarn.lock
+
+# 源代码目录
+libs/
+!libs/*.js
