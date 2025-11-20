@@ -209,9 +209,8 @@ dist\index.exe example.docx
 ```
 
 ### 批量转换示例
-将多个docx文件放入doc目录后：
-使用批量转换时，需要以下目录结构：
-
+使用批量转换时，需要以下目录结构，将多个docx文件放入doc目录后，
+双击 `docxToMarkdown.exe`
 ```
 项目目录/
 ├── doc/              # 放入要转换的docx文件
