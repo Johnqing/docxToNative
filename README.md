@@ -186,21 +186,6 @@ dist\index.exe --version       # Windows
 ./dist/index --version         # macOS/Linux
 ```
 
-### 📂 批量转换目录要求
-使用批量转换时，需要以下目录结构：
-
-```
-项目目录/
-├── doc/              # 放入要转换的docx文件
-│   ├── file1.docx
-│   └── file2.docx
-├── output/           # 转换后的markdown文件（自动创建）
-│   ├── file1.md
-│   └── file2.md
-└── dist/
-    └── index.exe      # 可执行文件
-```
-
 ### ⚠️ 使用注意事项
 - **权限问题**：确保可执行文件有执行权限（Linux/macOS）
 - **路径问题**：使用相对路径或绝对路径，避免路径包含空格
@@ -225,21 +210,17 @@ dist\index.exe example.docx
 
 ### 批量转换示例
 将多个docx文件放入doc目录后：
+使用批量转换时，需要以下目录结构：
 
-```bash
-# 双击运行或命令行执行
-dist\index.exe
-
-# 输出：
-# 🚀 批量转换模式启动...
-# 📄 找到 3 个docx文件：
-#    1. file1.docx
-#    2. file2.docx
-#    3. file3.docx
-# 
-# 📊 批量转换完成！
-# ✅ 成功：3 个文件
-# 📁 输出目录：./output
+```
+项目目录/
+├── doc/              # 放入要转换的docx文件
+│   ├── file1.docx
+│   └── file2.docx
+├── output/           # 转换后的markdown文件（自动创建）
+│   ├── file1.md
+│   └── file2.md
+└── docxToMarkdown.exe
 ```
 
 ## 错误处理
