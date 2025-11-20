@@ -1,6 +1,6 @@
 {
   "name": "docx-to-markdown-converter",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "将docx文件转换为Markdown格式的工具",
   "main": "index.js",
   "bin": {

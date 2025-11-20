@@ -98,8 +98,14 @@ class DocxToMarkdownConverter {
         // 转换换行
         markdown = markdown.replace(/<br[^>]*>/gi, '\n');
 
-        // 转换列表
+        // 转换表格
         const self = this;
+        markdown = markdown.replace(/<table[^>]*>(.*?)<\/table>/gis, function (match) {
+            const tableMarkdown = self.processTable(match);
+            return '\n' + tableMarkdown + '\n';
+        });
+
+        // 转换列表
         markdown = markdown.replace(/<ul[^>]*>(.*?)<\/ul>/gis, function (match) { return self.processUnorderedList(match); });
         markdown = markdown.replace(/<ol[^>]*>(.*?)<\/ol>/gis, function (match) { return self.processOrderedList(match); });
 
@@ -149,6 +155,126 @@ class DocxToMarkdownConverter {
         return content.replace(/<p[^>]*>(.*?)<\/p>/gi, '$1')
             .replace(/<[^>]*>/g, '')
             .trim();
+    }
+
+    processTable(htmlTable) {
+        try {
+            // 提取表头
+            const theadMatch = htmlTable.match(/<thead[^>]*>(.*?)<\/thead>/gis);
+            const tbodyMatch = htmlTable.match(/<tbody[^>]*>(.*?)<\/tbody>/gis);
+
+            let rows = [];
+
+            // 处理表头
+            if (theadMatch) {
+                const thead = theadMatch[0];
+                const headerRows = this.extractTableRows(thead);
+                rows = rows.concat(headerRows);
+            }
+
+            // 处理表体
+            if (tbodyMatch) {
+                const tbody = tbodyMatch[0];
+                const bodyRows = this.extractTableRows(tbody);
+                rows = rows.concat(bodyRows);
+            } else {
+                // 如果没有thead和tbody，直接提取所有tr
+                rows = this.extractTableRows(htmlTable);
+            }
+
+            if (rows.length === 0) {
+                return '';
+            }
+
+            // 转换为Markdown表格
+            let markdownTable = '';
+
+            // 添加第一行（通常是表头）
+            if (rows.length > 0) {
+                markdownTable += '| ' + rows[0].join(' | ') + ' |\n';
+
+                // 添加分隔线
+                const separators = rows[0].map(() => '---');
+                markdownTable += '| ' + separators.join(' | ') + ' |\n';
+
+                // 添加数据行
+                for (let i = 1; i < rows.length; i++) {
+                    markdownTable += '| ' + rows[i].join(' | ') + ' |\n';
+                }
+            }
+
+            return markdownTable + '\n';
+
+        } catch (error) {
+            console.warn('表格转换失败:', error.message);
+            return '';
+        }
+    }
+
+    extractTableRows(tableHtml) {
+        const rows = [];
+        const trMatches = tableHtml.match(/<tr[^>]*>(.*?)<\/tr>/gis);
+
+        if (!trMatches) {
+            return rows;
+        }
+
+        for (const tr of trMatches) {
+            const cells = [];
+
+            // 提取表头单元格 (th)
+            const thMatches = tr.match(/<th[^>]*>(.*?)<\/th>/gis);
+            if (thMatches) {
+                for (const th of thMatches) {
+                    const content = this.cleanTableCellContent(th);
+                    cells.push(content);
+                }
+            }
+
+            // 如果没有表头，提取数据单元格 (td)
+            if (cells.length === 0) {
+                const tdMatches = tr.match(/<td[^>]*>(.*?)<\/td>/gis);
+                if (tdMatches) {
+                    for (const td of tdMatches) {
+                        const content = this.cleanTableCellContent(td);
+                        cells.push(content);
+                    }
+                }
+            }
+
+            if (cells.length > 0) {
+                rows.push(cells);
+            }
+        }
+
+        return rows;
+    }
+
+    cleanTableCellContent(cellHtml) {
+        // 移除单元格标签并清理内容
+        let content = cellHtml;
+
+        // 移除单元格标签
+        content = content.replace(/<(th|td)[^>]*>/gi, '').replace(/<\/(th|td)>/gi, '');
+
+        // 移除段落标签
+        content = content.replace(/<p[^>]*>/gi, '').replace(/<\/p>/gi, ' ');
+
+        // 移除其他HTML标签
+        content = content.replace(/<[^>]*>/g, '');
+
+        // 解码HTML实体
+        content = content.replace(/&nbsp;/g, ' ');
+        content = content.replace(/&amp;/g, '&');
+        content = content.replace(/&lt;/g, '<');
+        content = content.replace(/&gt;/g, '>');
+        content = content.replace(/&quot;/g, '"');
+        content = content.replace(/&#39;/g, "'");
+
+        // 清理空白字符并转义管道符（Markdown表格分隔符）
+        content = content.trim().replace(/\s+/g, ' ').replace(/\|/g, '\\|');
+
+        return content;
     }
 }
 
