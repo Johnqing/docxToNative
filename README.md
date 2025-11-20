@@ -20,7 +20,45 @@ npm install
 
 ## 使用方法
 
-### 命令行使用
+### 方式1: 使用可执行文件（推荐）
+
+#### Windows用户
+```bash
+# 单文件转换
+dist\index.exe document.docx
+
+# 指定输出文件
+dist\index.exe document.docx -o output.md
+
+# 批量转换（双击运行）
+dist\index.exe
+
+# 查看帮助
+dist\index.exe --help
+
+# 查看版本
+dist\index.exe --version
+```
+
+#### macOS/Linux用户
+```bash
+# 单文件转换
+./dist/index document.docx
+
+# 指定输出文件
+./dist/index document.docx -o output.md
+
+# 批量转换
+./dist/index
+
+# 查看帮助
+./dist/index --help
+
+# 查看版本
+./dist/index --version
+```
+
+### 方式2: Node.js运行
 
 ```bash
 # 基本用法
@@ -74,7 +112,11 @@ npm run build:linux
 ├── converter.js      # 核心转换功能
 ├── package.json      # 项目配置和依赖
 ├── README.md         # 项目文档
+├── .gitignore       # Git忽略文件
+├── test.js          # 测试脚本
 └── dist/             # 构建输出目录
+    ├── index.exe      # Windows可执行文件
+    └── index         # macOS/Linux可执行文件
 ```
 
 ## 转换格式支持
@@ -93,13 +135,86 @@ npm run build:linux
 | 代码 | `代码` | 行内代码 |
 | 代码块 | ```代码``` | 多行代码块 |
 
+## dist目录文件使用指南
+
+### 📁 可执行文件说明
+`dist` 目录包含了预编译的可执行文件，无需Node.js环境即可运行：
+
+- **Windows**: `index.exe` - Windows平台的可执行文件
+- **macOS/Linux**: `index` - Unix系统的可执行文件
+
+### 🚀 快速开始
+
+#### 1. 单文件转换
+**Windows:**
+```bash
+# 基本转换
+dist\index.exe document.docx
+
+# 指定输出路径
+dist\index.exe document.docx -o output.md
+```
+
+**macOS/Linux:**
+```bash
+# 基本转换
+./dist/index document.docx
+
+# 指定输出路径
+./dist/index document.docx -o output.md
+```
+
+#### 2. 批量转换（推荐）
+只需双击可执行文件即可批量处理：
+
+**Windows:**
+- 双击 `dist\index.exe`
+- 或命令行运行：`dist\index.exe`
+
+**macOS/Linux:**
+- 双击 `dist/index`
+- 或命令行运行：`./dist/index`
+
+#### 3. 查看帮助和版本
+```bash
+# 查看帮助
+dist\index.exe --help          # Windows
+./dist/index --help            # macOS/Linux
+
+# 查看版本
+dist\index.exe --version       # Windows
+./dist/index --version         # macOS/Linux
+```
+
+### 📂 批量转换目录要求
+使用批量转换时，需要以下目录结构：
+
+```
+项目目录/
+├── doc/              # 放入要转换的docx文件
+│   ├── file1.docx
+│   └── file2.docx
+├── output/           # 转换后的markdown文件（自动创建）
+│   ├── file1.md
+│   └── file2.md
+└── dist/
+    └── index.exe      # 可执行文件
+```
+
+### ⚠️ 使用注意事项
+- **权限问题**：确保可执行文件有执行权限（Linux/macOS）
+- **路径问题**：使用相对路径或绝对路径，避免路径包含空格
+- **中文支持**：完美支持中文文件名和路径
+- **独立运行**：无需安装Node.js环境
+
 ## 使用示例
 
+### 单文件转换示例
 假设有一个 `example.docx` 文件：
 
 ```bash
-# 转换文件
-node index.js example.docx
+# 使用可执行文件
+dist\index.exe example.docx
 
 # 输出：
 # 🔄 开始转换...
@@ -108,11 +223,32 @@ node index.js example.docx
 # 📁 输出文件：example.md
 ```
 
+### 批量转换示例
+将多个docx文件放入doc目录后：
+
+```bash
+# 双击运行或命令行执行
+dist\index.exe
+
+# 输出：
+# 🚀 批量转换模式启动...
+# 📄 找到 3 个docx文件：
+#    1. file1.docx
+#    2. file2.docx
+#    3. file3.docx
+# 
+# 📊 批量转换完成！
+# ✅ 成功：3 个文件
+# 📁 输出目录：./output
+```
+
 ## 错误处理
 
 - 文件不存在：会显示友好的错误信息
 - 文件格式错误：只支持.docx格式
 - 转换失败：会显示具体的错误原因
+- 权限问题：确保可执行文件有执行权限（Linux/macOS）
+- 路径问题：避免使用包含空格的路径，或使用引号包裹
 
 ## 技术实现
 
